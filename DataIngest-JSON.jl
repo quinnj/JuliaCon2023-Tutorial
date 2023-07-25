@@ -4,200 +4,153 @@
 using Markdown
 using InteractiveUtils
 
-# ╔═╡ 5e20f270-c8c4-4cb3-88ff-67bccfa8a026
-using CSV
+# ╔═╡ ee7876c2-3d8c-4fef-81bb-7d529c859b3f
+using JSON3, JSONTables, DataFrames, CSV
 
-# ╔═╡ b8df28ed-8788-4bff-857e-8fd0ebcf151a
-using Statistics
+# ╔═╡ ae7e03e1-7289-4ddb-b892-8cc3ac241594
+using Dates
 
-# ╔═╡ 0e9a3666-ddb6-48c6-9951-d08c0b6c2e5b
-using DataFrames
-
-# ╔═╡ a246fa20-0417-48ed-8422-dc1c9909e068
+# ╔═╡ 91fbe57a-2a6b-11ee-22e6-415877198985
 md"""# _Working with DataFrames.jl beyond CSV_
 ### Jacob Quinn
 """
 
-# ╔═╡ 80e8cb31-3260-4388-89d5-e5c935313318
-md"""# Part 4: _Data Ingestion via CSV.jl_
+# ╔═╡ 8a44419a-8e0c-43b7-85d4-e42b62a93f62
+md"""# Part 6: _Data Ingestion with JSON data_
 
 
-##### Ok, ok, I know the name of the talk is "DataFrames _beyond_ CSV", but we need to talk about CSV, right??
-\
+#### JSON Primer
 
-As one of the most common data formats, let's discuss briefly the various ways the CSV.jl package helps process CSV data:
-\
+###### JSON data is a simple, text-based data format that is human readable, and extensively used across the web. It is _mostly_ structured, though the specification is a bit loose and leads to slight variations in actual language implementations. Officially, JSON supports numbers, booleans, strings, and null as atom values, with objects (pairs of keys and values) and arrays as structured values. 
+
+When it comes to table-like data, there are 2 common ways JSON data can represent table data. One is an array of objects, which can be seen as a row-oriented representation. Each element of the array is an object, and objects are expected to share the same keys and value types as the table schema. The second is an object of arrays, where the object keys are column names, and the object values are entire arrays of column values.
+
+
+#### Getting Started With JSON
+
+Ok, so how do we work with JSON in Julia? I'll be focusing on the abilities provided by the JSON3.jl and JSONTables.jl packages, though there are other options available providing similar abilities. As with Arrow.jl, let's first start with how we take table data and get it into the JSON format.
 """
+# What is JSON data
+# 2 table-like formats
+# input/output
+# options for flattening?
+# future plans
 
-# ╔═╡ 2e335fde-13f0-4550-91aa-63a8c81bbcd4
-md"""
-|                           | CSV.File | CSV.Chunks | CSV.Rows |
-|---------------------------|----------|------------|----------|
-| Automatic Type Inference  | ✅        | ✅          |          |
-| Produces Columnar Results | ✅        | ✅          |          |
-| Process Files Iteratively |          | ✅          | ✅        |
-| Low Memory Requirements   |          | ✅*         | ✅        |
-"""
-
-# ╔═╡ 0ce424e0-24e1-11ee-166a-a74982731348
+# ╔═╡ e1d743fc-e3f6-4bf1-9ee1-9ffeeb658b43
 md"""
 Data downloaded from [here](https://drive.google.com/file/d/1LJ5ftwOJbJtXVjDjWa3btuDPTYpAcGbh/view?usp=sharing) (NOTE: this is a gzipped file around ~350MB, 1GB uncompressed!). Alternatively, a much smaller subset of the data can be downloaded [here](https://drive.google.com/file/d/1Lde1DZwBHmomm9TOg5L4kP-vPNkymSNP/view?usp=sharing). To make subsequent commands work, edit the following cell to point to the path of whichever file you downloaded.
 """
 
-# ╔═╡ 5a6f9a94-f838-4d07-8299-ef1d35e5907e
+# ╔═╡ 25985a0a-1c9d-4c5e-8e80-b7ecf7138358
 const path = "/Users/quinnj/randoms.csv.gz"
 
-# ╔═╡ ab4afff2-8c1d-438c-a2dc-be91179ce27d
+# ╔═╡ ac645907-fe04-408d-ae90-8f6b02b1875b
+df = CSV.read(path, DataFrame; header=["id", "Fname", "Lname", "Salary", "Wage", "StartDate", "TermDate"])
+
+# ╔═╡ 8078edad-6b02-40f6-9af2-161d4496daa1
 md"""
-First, let's take a look at `CSV.File`. The constructor for this takes a delimited file name, byte buffer, `Cmd` or `IO`, along with any keyword arguments to control types, parsing details, etc.
+Ok, we have our `DataFrame` of data, now let's use the `arraytable` and `objecttable` functions from the JSONTables.jl package to write data out to JSON.
 """
 
-# ╔═╡ 3ed1f46a-3636-4063-a29d-b2371082b9fa
-f = CSV.File(path; header=["id", "Fname", "Lname", "Salary", "Wage", "StartDate", "TermDate"])
+# ╔═╡ b1f28379-b038-4195-8b23-97fd5f207796
+json_arr = arraytable(df[1:5, :])
 
-# ╔═╡ 1f349016-e72f-4f4a-bd19-e5cde32ff7ec
+# ╔═╡ 174100db-2ec6-4023-8a8b-6d03f55a7df0
+JSON3.@pretty json_arr
+
+# ╔═╡ c3174bbd-9235-4311-a52c-9aee4388efc7
+json_obj = objecttable(df[1:5, :])
+
+# ╔═╡ dcfc18ea-d388-4228-8f94-c031bc7ce415
+JSON3.@pretty json_obj
+
+# ╔═╡ 143bb099-0a68-4453-a147-8328e95923bf
 md"""
-We can see that calling `CSV.File` parsed and materialized the full file, and that results are displayed in columns. Column types were "inferred" while parsing, and any necessary promotion is taken care of automatically. We can see that integers, strings, dates, and datetimes were all automatically inferred.
- \ 
+Here we're taking just 5 rows from our `DataFrame` (for display purposes), and writing them out as JSON "tables", first as an array of objects, then as an object of arrays. One note about the array of objects is that the column names (object keys) are repeated for each "row" (object), which can drastically increase the size of the produced JSON. These 2 functions `arraytable` and `objecttable` are provided by the JSONTables.jl package and use JSON3.jl under the hood in connection with the Tables.jl package.
 
- 
-We can see the inferred column names and types by accessing fields:
+So that shows us going from table -> JSON, but what about the other way around?
 """
 
-# ╔═╡ 603910fa-fb31-4975-9871-248016ecc08a
-f.names
+# ╔═╡ 8af25f8b-5411-49c9-9f45-9b8d98fa2329
+df_arr = DataFrame(jsontable(json_arr))
 
-# ╔═╡ 635ad9e6-7065-4e90-a272-f4819bd87658
-f.types
+# ╔═╡ 23506d89-95fd-466b-90b1-0dec0c2a5555
+df_obj = DataFrame(jsontable(json_obj))
 
-# ╔═╡ af85f012-6fbd-4d42-a709-707b1e8bbb28
+# ╔═╡ 45ad8e08-691b-410c-bd26-e922f0019abf
 md"""
-We can access results row-by-row, or as entire columns.
+We're only using a single function in both cases here, `jsontable`, which automatically detects whether the input JSON is an array of objects or an object of arrays, then provides the right Tables.jl interface functions so DataFrames knows what to do.
+
+Let's pause for just a second and take a quick look at our last two columns though:
 """
 
-# ╔═╡ 05aacd94-34f7-497f-81ea-8815535b2965
-avg_wage = begin
-	sum_wage = 0.0
-	for row in f
-		sum_wage += coalesce(row.Wage, 0.0)
-	end
-	sum_wage / length(f)
+# ╔═╡ 02514248-e707-4ee5-8813-bdb1bc732e54
+df_obj.StartDate
+
+# ╔═╡ 1606f0be-7b88-45a9-a787-5a7cbcc0c064
+df_obj.TermDate
+
+# ╔═╡ af8c7676-129e-4628-a42b-b379754337ff
+md"""
+Our original data/`DataFrame` had `Date` and `Union{DateTime, Missing}` column types, but these are strings! This reveals one of the limitations of the JSON format; there's no native support for custom types, dates, etc. We can overcome this by adding a post-processing step ourselves.
+"""
+
+# ╔═╡ 99309821-ed4a-42e1-a4fa-ef8670072377
+df_obj.StartDate = Date.(df_obj.StartDate)
+
+# ╔═╡ 82e41123-3dbf-43b9-b0f6-48b3673eae0b
+df_obj.TermDate = [ismissing(x) ? missing : DateTime(x) for x in df_obj.TermDate]
+
+# ╔═╡ 947cefcc-4b21-4646-bda1-64aa9f5ee5c9
+df_obj
+
+# ╔═╡ 450cfeb3-a32f-4350-93f1-cea2b4d1ee13
+md"""
+An alternative, more advanced approach is working more closely with the raw JSON data. The JSON3.jl package, integrating with the StructTypes.jl package, provides a way to deserialize JSON directly into typed Julia structs. Let's use our `Person` struct definition from part 5 (arrow).
+"""
+
+# ╔═╡ 4a352522-0f5c-4f56-88ce-d8dd5a86c079
+# id	Fname	Lname	Salary	Wage	StartDate	TermDate
+# Int64	String	String	Int64?	Float64?	Date	DateTime?
+struct Person
+	id::Int
+	Fname::String
+	Lname::String
+	Salary::Union{Int, Missing}
+	Wage::Union{Float64, Missing}
+	StartDate::Date
+	TermDate::Union{DateTime, Missing}
 end
 
-# ╔═╡ 25870155-c5d1-4d69-8c34-b6381cc954fb
-avg_wage_col = mean(skipmissing(f.Wage))
+# ╔═╡ 66416e28-8cc2-4575-86cd-2c5cffa9d32b
+persons = JSON3.read(json_arr, Vector{Person})
 
-# ╔═╡ 26392e89-44c9-4659-b90c-913f0840623b
+# ╔═╡ 0be5e706-3e73-4467-be3e-a8d46468e277
 md"""
-We can also materialize the results in a DataFrame (obviously)!
+Woah! That just worked! Let's step through it:
+
+* We had JSON data that was an array of objects, where each object had the same keys and values of the same type (our person data)
+* We defined a Julia struct `Person` with field names and types that match the JSON keys/values
+* We called `JSON3.read` with our JSON data as the 1st argument, and a type (`Vector{Person}`) as the 2nd argument
+* `JSON3.read` returned an _instance_ of `Vector{Person}`, where each element is a materialized `Person` struct, with even the `Date`/`DateTime` fields fully parsed, and `missing` values accounted for
+
+How does that "just work"? The [StructTypes.jl](https://github.com/JuliaData/StructTypes.jl) package provides utilities for constructing/accessing Julia structs in programmatic ways. By default, Julia structs are treated as "data packages" where each field name + type is part of the data package. JSON3.jl then uses the StructTypes.jl package when a custom struct (`Person` in this case) is requested in the deserialization process.
+
+Ok, that's pretty neat, but does that help me with getting this data into a `DataFrame`?
 """
 
-# ╔═╡ 93963ecf-f7ac-46ec-a90e-3ed01e0fa35f
-df = DataFrame(f)
+# ╔═╡ b5002109-9034-4455-831a-7ddb9dc53dc8
+df_persons = DataFrame(persons)
 
-# ╔═╡ 9f85e039-fc43-4227-8111-68e231a7467f
+# ╔═╡ c7d3e7a9-3b68-4851-8d55-75f018cee2c4
 md"""
-But what exactly happened when we did that? Did we make a copy of the data? Or is the `CSV.File` object and `DataFrame` _sharing_ the data?
-"""
+Woah again! That just works too?? In this case, `persons` is a `Vector{Person}`, and in the Tables.jl interface, a custom struct like `Person` is _also_ treated by default as a "data packet" or "row" where each field name + type is the column name/type of the row, so a `Vector{Person}` is, by default, treated as a "row table", that is, it's a table of rows, where the values on each row are the fields of the `Person` structs. Pretty neat!
 
-# ╔═╡ b4901aaf-729a-42dc-b665-7bd580ae1d11
-f.id == df.id
+This all comes together in a way that makes modelling and working with _domain_ data in Julia via custom structs really easy. Let me say that again in another way: unlike many other "data analysis" frameworks in other languages, it can be a seamless experience to model data in Julia using custom structs, go to-and-from a 2D representation via DataFrames.jl, all with minimal integration needed.
 
-# ╔═╡ b74787e2-60da-4534-b530-b37c9c67b34c
-f.id === df.id
+#### Future of JSON
 
-# ╔═╡ b4694b9b-c222-4be8-978f-522e1324adf6
-md"""
-Ok, so they're _not_ sharing data, so a copy was made! I guess that's safe if I'm doing operations on the `CSV.File` and `DataFrame` separately and don't mean to modify both. But what if I _don't_ want to make a copy, for efficiency?
-"""
-
-# ╔═╡ 2e902fdf-eeba-4cc3-8b38-ae6d417552b8
-df_no_copy = DataFrame(f; copycols=false)
-
-# ╔═╡ e9cc0eab-9052-4c7b-b721-392e22709abc
-f.id === df_no_copy.id
-
-# ╔═╡ 89f956a4-093e-4bff-b01d-10c8eb91c1f0
-md"""
-Alternatively, CSV.jl provides the `CSV.read` function, which does this for us automatically.
-"""
-
-# ╔═╡ e8212439-a98f-4d62-a2f7-7c21080f37f7
-df_no_copy2 = CSV.read(path, DataFrame; header=["id", "Fname", "Lname", "Salary", "Wage", "StartDate", "TermDate"])
-
-# ╔═╡ 96471b78-45b3-415e-b8b2-e77235cff103
-md"""
-Because there's no intermediate `CSV.File`, the column results were materialized directly into the `DataFrame`.
- \
-
-
-How does this work since CSV.jl doesn't depend on DataFrames.jl? How do they know how to talk to each other? The answer is in the Tables.jl package.
- \
-
-
-Tables.jl provides interfaces that table sources can overload so the source rows or columns can be accessed in a generic way by table consumers. So in this case, `CSV.File` overloads the Tables.jl accessor functions, and then DataFrames.jl _uses_ the Tables.jl API to make columns.
-"""
-
-# ╔═╡ 82a578e0-3af9-4811-a402-8c86c5414fe7
-md"""
-### `CSV.Chunks`
- \
-
-Ok, so `CSV.File` sounds pretty nifty, but what if my delimited file is on the larger side and I can't or don't want to materialize the full thing in memory?
- \
-
-
-`CSV.Chunks` provides almost an identical interface to `CSV.File` (i.e. give it any of the same delimited sources, keyword args, etc), but also supports an additional `ntasks` keyword argument which specifies how many "chunks" a file should be split up into. Calling `CSV.Chunks` returns, you guessed it, a `CSV.Chunks` object. So what can you do with a `CSV.Chunks`? It's interface is very simple, all you can do is iterate it, where each iteration produces a `CSV.File` object of a subset of the entire data source. That means on each iteration, the entire chunk is materialized like `CSV.File` where column names, types, and values-in-columns are available as before. Let's see this in action.
-"""
-
-# ╔═╡ b8277719-37f7-4fcc-8350-4310a596d7c7
-avg_wage_chunked = begin
-	sum_wage2 = 0.0
-	count = 0
-	for chunk in CSV.Chunks(path; header=["id", "Fname", "Lname", "Salary", "Wage", "StartDate", "TermDate"])
-		sum_wage2 += sum(skipmissing(chunk.Wage))
-		count += length(chunk)
-	end
-	sum_wage2 / count
-end
-
-# ╔═╡ dfd8eae6-4826-4434-a16c-5d5c1e023713
-md"""
-By default, `CSV.Chunks` will split into `Threads.nthreads()` iterations, unless there's only 1 thread available, in which case it will split into 8 chunks. As mentioned above, this is controllable via the `ntasks` keyword argument.
-  \
-
-
-The advantages of `CSV.Chunks` is that we can get the benefits of `CSV.File` (columnar results, type inference) while still being able to process extremely large data.
-"""
-
-# ╔═╡ fdbdfee3-ed32-4f2f-b1f7-2b5f5c58686b
-md"""### `CSV.Rows`
- \
-
-Another alternative way to process delimited files is via `CSV.Rows`, which is focused on providing an efficient, lowest-memory footprint iterator over delimited rows. A major tradeoff of focusing on processing one row at a time, however, is giving up automatic type inference. Users can still pass an explicit set of types to be parsed.
-"""
-
-# ╔═╡ 222cbc93-6aba-4c75-812f-85bc063a3639
-avg_wage_rows = begin
-	sum_wage3 = 0.0
-	count3 = 0
-	for row in CSV.Rows(path; header=["id", "Fname", "Lname", "Salary", "Wage", "StartDate", "TermDate"], types=Dict("Wage" => Float64))
-		sum_wage3 += coalesce(row.Wage, 0.0)
-		count3 += 1
-	end
-	sum_wage3 / count3
-end
-
-# ╔═╡ 711e7450-7fd4-4711-bbcf-3949c876deaa
-md"""
-### Future of CSV.jl
-
-We've been experimenting with a few different things for possible CSV.jl 1.0.
-
-* [NewlineLexers.jl](https://github.com/JuliaData/NewlineLexers.jl) package for _really_ fast SIMD newline lexing as a pre-parsing step
-* Working on a more chunked, true streaming approach on IOs via [ChunkedBase.jl](https://github.com/JuliaData/ChunkedBase.jl)
-* These techniques/approaches have certain advantages, but there are tradeoffs, so definitely still experimenting.
-* Also possibly an API change to consolidate `CSV.File`, `CSV.Chunks`, and `CSV.Rows` into a single `CSV.File` object with accessor functions to process rows, chunks, or columns as needed.
+Tune in to my talk on Thursday! 😊
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000001
@@ -205,11 +158,15 @@ PLUTO_PROJECT_TOML_CONTENTS = """
 [deps]
 CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
 DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
-Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+JSON3 = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+JSONTables = "b9914132-a727-11e9-1322-f18e41205b0b"
 
 [compat]
 CSV = "~0.10.11"
 DataFrames = "~1.6.0"
+JSON3 = "~1.13.1"
+JSONTables = "~1.0.3"
 """
 
 # ╔═╡ 00000000-0000-0000-0000-000000000002
@@ -218,7 +175,7 @@ PLUTO_MANIFEST_TOML_CONTENTS = """
 
 julia_version = "1.9.0-rc1"
 manifest_format = "2.0"
-project_hash = "f053f06262d956a6474da3cf50e271109a8590a6"
+project_hash = "8554fbd42557d2024d6f33684f4f49b4c7c06a58"
 
 [[deps.ArgTools]]
 uuid = "0dad84c5-d112-42e6-8d28-ef12dabb789f"
@@ -331,6 +288,18 @@ version = "1.3.0"
 git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
 uuid = "82899510-4779-5014-852e-03e436cf321d"
 version = "1.0.0"
+
+[[deps.JSON3]]
+deps = ["Dates", "Mmap", "Parsers", "PrecompileTools", "StructTypes", "UUIDs"]
+git-tree-sha1 = "5b62d93f2582b09e469b3099d839c2d2ebf5066d"
+uuid = "0f8b85d8-7281-11e9-16c2-39a750bddbf1"
+version = "1.13.1"
+
+[[deps.JSONTables]]
+deps = ["JSON3", "StructTypes", "Tables"]
+git-tree-sha1 = "13f7485bb0b4438bb5e83e62fcadc65c5de1d1bb"
+uuid = "b9914132-a727-11e9-1322-f18e41205b0b"
+version = "1.0.3"
 
 [[deps.LaTeXStrings]]
 git-tree-sha1 = "f2355693d6778a178ade15952b7ac47a4ff97996"
@@ -490,6 +459,12 @@ git-tree-sha1 = "46da2434b41f41ac3594ee9816ce5541c6096123"
 uuid = "892a3eda-7b42-436c-8928-eab12a02cf0e"
 version = "0.3.0"
 
+[[deps.StructTypes]]
+deps = ["Dates", "UUIDs"]
+git-tree-sha1 = "ca4bccb03acf9faaf4137a9abc1881ed1841aa70"
+uuid = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
+version = "1.10.0"
+
 [[deps.SuiteSparse_jll]]
 deps = ["Artifacts", "Libdl", "Pkg", "libblastrampoline_jll"]
 uuid = "bea87d4a-7f5b-5778-9afe-8cc45184846c"
@@ -567,38 +542,33 @@ version = "17.4.0+0"
 """
 
 # ╔═╡ Cell order:
-# ╟─a246fa20-0417-48ed-8422-dc1c9909e068
-# ╟─80e8cb31-3260-4388-89d5-e5c935313318
-# ╟─2e335fde-13f0-4550-91aa-63a8c81bbcd4
-# ╟─0ce424e0-24e1-11ee-166a-a74982731348
-# ╠═5a6f9a94-f838-4d07-8299-ef1d35e5907e
-# ╟─ab4afff2-8c1d-438c-a2dc-be91179ce27d
-# ╠═5e20f270-c8c4-4cb3-88ff-67bccfa8a026
-# ╠═3ed1f46a-3636-4063-a29d-b2371082b9fa
-# ╟─1f349016-e72f-4f4a-bd19-e5cde32ff7ec
-# ╠═603910fa-fb31-4975-9871-248016ecc08a
-# ╠═635ad9e6-7065-4e90-a272-f4819bd87658
-# ╟─af85f012-6fbd-4d42-a709-707b1e8bbb28
-# ╠═05aacd94-34f7-497f-81ea-8815535b2965
-# ╠═b8df28ed-8788-4bff-857e-8fd0ebcf151a
-# ╠═25870155-c5d1-4d69-8c34-b6381cc954fb
-# ╟─26392e89-44c9-4659-b90c-913f0840623b
-# ╠═0e9a3666-ddb6-48c6-9951-d08c0b6c2e5b
-# ╠═93963ecf-f7ac-46ec-a90e-3ed01e0fa35f
-# ╟─9f85e039-fc43-4227-8111-68e231a7467f
-# ╠═b4901aaf-729a-42dc-b665-7bd580ae1d11
-# ╠═b74787e2-60da-4534-b530-b37c9c67b34c
-# ╟─b4694b9b-c222-4be8-978f-522e1324adf6
-# ╠═2e902fdf-eeba-4cc3-8b38-ae6d417552b8
-# ╠═e9cc0eab-9052-4c7b-b721-392e22709abc
-# ╟─89f956a4-093e-4bff-b01d-10c8eb91c1f0
-# ╠═e8212439-a98f-4d62-a2f7-7c21080f37f7
-# ╟─96471b78-45b3-415e-b8b2-e77235cff103
-# ╟─82a578e0-3af9-4811-a402-8c86c5414fe7
-# ╠═b8277719-37f7-4fcc-8350-4310a596d7c7
-# ╟─dfd8eae6-4826-4434-a16c-5d5c1e023713
-# ╟─fdbdfee3-ed32-4f2f-b1f7-2b5f5c58686b
-# ╠═222cbc93-6aba-4c75-812f-85bc063a3639
-# ╟─711e7450-7fd4-4711-bbcf-3949c876deaa
+# ╟─91fbe57a-2a6b-11ee-22e6-415877198985
+# ╠═8a44419a-8e0c-43b7-85d4-e42b62a93f62
+# ╠═ee7876c2-3d8c-4fef-81bb-7d529c859b3f
+# ╟─e1d743fc-e3f6-4bf1-9ee1-9ffeeb658b43
+# ╠═25985a0a-1c9d-4c5e-8e80-b7ecf7138358
+# ╠═ac645907-fe04-408d-ae90-8f6b02b1875b
+# ╟─8078edad-6b02-40f6-9af2-161d4496daa1
+# ╠═b1f28379-b038-4195-8b23-97fd5f207796
+# ╠═174100db-2ec6-4023-8a8b-6d03f55a7df0
+# ╠═c3174bbd-9235-4311-a52c-9aee4388efc7
+# ╠═dcfc18ea-d388-4228-8f94-c031bc7ce415
+# ╟─143bb099-0a68-4453-a147-8328e95923bf
+# ╠═8af25f8b-5411-49c9-9f45-9b8d98fa2329
+# ╠═23506d89-95fd-466b-90b1-0dec0c2a5555
+# ╟─45ad8e08-691b-410c-bd26-e922f0019abf
+# ╠═02514248-e707-4ee5-8813-bdb1bc732e54
+# ╠═1606f0be-7b88-45a9-a787-5a7cbcc0c064
+# ╟─af8c7676-129e-4628-a42b-b379754337ff
+# ╠═ae7e03e1-7289-4ddb-b892-8cc3ac241594
+# ╠═99309821-ed4a-42e1-a4fa-ef8670072377
+# ╠═82e41123-3dbf-43b9-b0f6-48b3673eae0b
+# ╠═947cefcc-4b21-4646-bda1-64aa9f5ee5c9
+# ╟─450cfeb3-a32f-4350-93f1-cea2b4d1ee13
+# ╠═4a352522-0f5c-4f56-88ce-d8dd5a86c079
+# ╠═66416e28-8cc2-4575-86cd-2c5cffa9d32b
+# ╟─0be5e706-3e73-4467-be3e-a8d46468e277
+# ╠═b5002109-9034-4455-831a-7ddb9dc53dc8
+# ╟─c7d3e7a9-3b68-4851-8d55-75f018cee2c4
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
