@@ -120,6 +120,14 @@ md"""
 Ah...so no copy is being made. We're using these "arrow column views" directly as columns in our `DataFrame`. But we can still do pretty normal operations, right?
 """
 
+# ╔═╡ 90d6c20b-d405-4a06-a37a-4c6a78499390
+md"""
+(Quick side note: how does DataFrames know to _not_ make a copy of columns from arrow? The Tables.jl package provides a wrapper called `Tables.CopiedColumns`, which is a signal for sinks/consumers that the incoming data _doesn't_ need to be copied, i.e. it's safe to assume ownership; we can see the use of this by calling `Tables.columns` on our `Arrow.Table`):
+"""
+
+# ╔═╡ 83f167eb-fb7d-4d33-94fd-4908a8979608
+Tables.columns(table)
+
 # ╔═╡ 781214ac-2518-40b7-b290-ac9e609ce09e
 avg_wage_col = mean(skipmissing(arrow_df.Wage))
 
@@ -754,6 +762,8 @@ version = "17.4.0+0"
 # ╠═9d4bb894-d0fc-424e-a8f0-a8137f5300a2
 # ╠═0a201249-ffd4-4dc9-81e0-1799fb6b4d47
 # ╟─2f5cca18-c648-4d82-bac3-cf801e154e97
+# ╟─90d6c20b-d405-4a06-a37a-4c6a78499390
+# ╠═83f167eb-fb7d-4d33-94fd-4908a8979608
 # ╠═b3edc3d9-e689-451e-9e60-a9ccf541c438
 # ╠═781214ac-2518-40b7-b290-ac9e609ce09e
 # ╠═9a01ba16-1725-4533-88e8-f9d7d8dfa215
