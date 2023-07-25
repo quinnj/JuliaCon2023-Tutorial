@@ -252,6 +252,11 @@ Ok, a lot going on here, but let's walk through it:
 4. We then overloaded 2 `Arrow.ArrowTypes` functions to signal that our `Person` structs should be written with additional metadata that will allow them to be deserialized as proper structs
 5. We then write and read the persons `DataFrame` again, now that the overloads are in place, and see that we indeed get instances of our `Person` struct when indexing the single arrow column
 
+#### Other Arrow.jl Features
+
+* `Arrow.append` that allows adding _additional_ data messages to existing IPC arrow streams
+* Table and column metadata; using the `metadata` and `colmetadata` interfaces to get metadata for the arrow table or for individual columns
+
 #### Future of Arrow.jl
 
 * Keeping up with specification changes/enhancements (alternative layouts, encodings, etc.)
